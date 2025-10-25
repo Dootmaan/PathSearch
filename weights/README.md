@@ -1,0 +1,1 @@
+Please download the default weights from [Zenodo](https://zenodo.org/records/17431804), and put it here. 
