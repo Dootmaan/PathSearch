@@ -1,4 +1,4 @@
-import torch, argparse, os, numpy as np
+import torch, argparse, os, numpy as np, sys
 from tqdm import tqdm
 from rich import print as rprint
 from collections import defaultdict
@@ -6,8 +6,11 @@ from scipy import stats
 from bitarray import util as butil
 import bitarray
 
-from PathSearch.dataset.DHMCLUADDataset import DHMCLUADDataset
-from PathSearch.model.PathSearch import PathSearch
+# Add parent directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+
+from dataset.DHMCLUADDataset import DHMCLUADDataset
+from model.PathSearch import PathSearch
 
 parser = argparse.ArgumentParser(description='DHMC-LUAD Test (PathSearch + BoB)')
 parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')

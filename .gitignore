@@ -1,7 +1,13 @@
-.bak
-.pt
+*.bak
+*.pt
 __pycache__
 *.pyce
 .vscode
 .DS_Store
 .log
+temp_result
+*.pkl
+*.log
+training_*
+cache_*
+*.egg-info

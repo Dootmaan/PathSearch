@@ -5,8 +5,12 @@ import torch
 from peft import LoraConfig, get_peft_model
 import argparse
 import os
+import sys
 from pathlib import Path
-from PathSearch import config
+
+# Add parent directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+import config
 
 
 def get_model(device):

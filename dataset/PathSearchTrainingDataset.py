@@ -2,6 +2,7 @@ import os
 import glob
 import pickle
 from collections import defaultdict
+from typing import Optional
 import torch
 import numpy as np
 import pandas as pd
@@ -19,7 +20,7 @@ class PathSearchDataset(torch.utils.data.Dataset):
       ./pt_files/conch_v1_5/*.pt
       ./h5_files/conch_v1_5/*.h5
     """
-    def __init__(self, data_root: str = './data/TCGA', mode: str = 'test', sample_num: int = 512, cache_dir: str | None = './kmeans_cache', rebuild_cache: bool = False):
+    def __init__(self, data_root: str = './data/TCGA', mode: str = 'test', sample_num: int = 512, cache_dir: Optional[str] = './kmeans_cache', rebuild_cache: bool = False):
         if cache_dir is None:
             cache_dir = './kmeans_cache'
         self.label, self.coords, self.patch_size_lv0 = [], [], []
@@ -29,6 +30,11 @@ class PathSearchDataset(torch.utils.data.Dataset):
         self.sample_num = int(sample_num)
         self.cache_dir = Path(cache_dir)
         self.kmeans_cache = {}
+        
+        # Initialize tokenizer (like PathVLM)
+        from open_clip import get_tokenizer
+        self.tokenizer = get_tokenizer('hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224')
+        
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         self._load_data_paths(data_root)
@@ -47,21 +53,28 @@ class PathSearchDataset(torch.utils.data.Dataset):
 
     def _load_data_paths(self, data_root: str):
         root = Path(data_root)
-        # splits
-        splits_root = root / 'splits'
+        
+        # Define split files - use fixed paths like PathVLM
         split_files = [
-            splits_root / 'LUAD_LUSC_100' / 'splits_0.csv',
-            splits_root / 'RCC_100' / 'splits_0.csv',
-            splits_root / 'TCGA_BRCA_subtyping_100' / 'splits_0.csv',
+            '/your/path/to/EasyMIL/splits712/LUAD_LUSC_100/splits_0.csv',
+            '/your/path/to/EasyMIL/splits712/RCC_100/splits_0.csv',
+            '/your/path/to/EasyMIL/splits712/TCGA_BRCA_subtyping_100/splits_0.csv'
         ]
+        
         train_cases, val_cases, test_cases = set(), set(), set()
-        for sf in split_files:
-            if not sf.exists():
-                raise FileNotFoundError(f"Split file not found: {sf}")
-            df = pd.read_csv(sf, index_col=0, header=0)
-            train_cases.update(df.iloc[:, 0].dropna().tolist())
-            val_cases.update(df.iloc[:, 1].dropna().tolist())
-            test_cases.update(df.iloc[:, 2].dropna().tolist())
+        
+        # Collect cases from all split files
+        for split_file in split_files:
+            if os.path.exists(split_file):
+                df = pd.read_csv(split_file, index_col=0, header=0)
+                # Column 1 = train, Column 2 = val, Column 3 = test
+                train_cases.update(df.iloc[:, 0].dropna().tolist())
+                val_cases.update(df.iloc[:, 1].dropna().tolist())
+                test_cases.update(df.iloc[:, 2].dropna().tolist())
+            else:
+                logging.warning(f"Split file not found: {split_file}")
+        
+        # Select target cases based on mode
         if self.mode == 'train':
             pt_root = root / 'pt_files' / 'conch_v1_5'
             all_pts = glob.glob(str(pt_root / '*.pt'))
@@ -74,21 +87,23 @@ class PathSearchDataset(torch.utils.data.Dataset):
             target_cases = test_cases
             exclude_cases = train_cases | val_cases
 
-        # cancer-specific (optional)
-        def _cases_from_dir(root_dir: Path):
-            if not root_dir.exists():
-                return []
-            return [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(str(root_dir / '*.pt'))]
-        LUAD_cases = _cases_from_dir(root / 'TCGA__LUAD' / 'pt_files' / 'conch')
-        LUSC_cases = _cases_from_dir(root / 'TCGA__LUSC' / 'pt_files' / 'conch')
-        KICH_cases = _cases_from_dir(root / 'TCGA__KICH' / 'pt_files' / 'conch')
-        KIRC_cases = _cases_from_dir(root / 'TCGA__KIRC' / 'pt_files' / 'conch')
-        KIRP_cases = _cases_from_dir(root / 'TCGA__KIRP' / 'pt_files' / 'conch')
+        # Load cancer-specific cases from fixed paths (like PathVLM)
+        LUAD_path = '/your/path/to/Pathology/Patches/TCGA__LUAD/pt_files/conch/'
+        LUSC_path = '/your/path/to/Pathology/Patches/TCGA__LUSC/pt_files/conch/'
+        KIRP_path = '/your/path/to/Pathology/Patches/TCGA__KIRP/pt_files/conch/'
+        KIRC_path = '/your/path/to/Pathology/Patches/TCGA__KIRC/pt_files/conch/'
+        KICH_path = '/your/path/to/Pathology/Patches/TCGA__KICH/pt_files/conch/'
 
-        # BRCA subtyping
-        brca_csv = root / 'labels' / 'BRCA_subtyping.csv'
+        LUAD_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{LUAD_path}/*.pt")] if os.path.exists(LUAD_path) else []
+        LUSC_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{LUSC_path}/*.pt")] if os.path.exists(LUSC_path) else []
+        KICH_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{KICH_path}/*.pt")] if os.path.exists(KICH_path) else []
+        KIRC_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{KIRC_path}/*.pt")] if os.path.exists(KIRC_path) else []
+        KIRP_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{KIRP_path}/*.pt")] if os.path.exists(KIRP_path) else []
+
+        # BRCA subtyping - use fixed path
+        brca_csv = '/your/path/to/EasyMIL/dataset_csv/BRCA_subtyping.csv'
         ILC_cases, IDC_cases = [], []
-        if brca_csv.exists():
+        if os.path.exists(brca_csv):
             brca = pd.read_csv(brca_csv, index_col=2)
             for case_name in brca.index:
                 lv = brca.loc[case_name][2]
@@ -97,12 +112,19 @@ class PathSearchDataset(torch.utils.data.Dataset):
                 elif lv == 'ILC':
                     ILC_cases.append(case_name[:12])
 
-        # texts
-        txt_path = root / 'texts' / 'TCGA_all_clean_qianwen2.csv'
-        if not txt_path.exists():
+        # Load text data - use fixed path like PathVLM
+        txt_path = '/your/path/to/wsi4report/TCGA_all_clean_qianwen2.csv'
+        if not os.path.exists(txt_path):
             raise FileNotFoundError(f"Text CSV not found: {txt_path}")
         text_all = pd.read_csv(txt_path)
         all_case_ids = text_all.iloc[:, 0]
+        
+        # Debug: print CSV structure
+        logging.info(f"Text CSV columns: {list(text_all.columns)}")
+        logging.info(f"Text CSV shape: {text_all.shape}")
+        
+        # Text is in column 5 (text_by_wanghongyi_qianwen_deep_filter)
+        text_col_idx = 5
 
         # pt mapping
         pt_root = root / 'pt_files' / 'conch_v1_5'
@@ -114,17 +136,29 @@ class PathSearchDataset(torch.utils.data.Dataset):
             case_to_pt[case_id].append(pt_file)
 
         valid = 0
+        skipped_no_text = 0
+        skipped_no_pt = 0
+        skipped_not_in_target = 0
+        
         for i in tqdm(range(len(all_case_ids)), desc=f"Processing {self.mode} data"):
             ccid = all_case_ids[i]
-            if not isinstance(text_all.iat[i, 5], str):
-                print(f"[Error] text not string: {text_all.iat[i,5]} | {ccid}")
+            text_value = text_all.iat[i, text_col_idx]
+            
+            # Check if text is valid (not nan and is string)
+            if pd.isna(text_value) or not isinstance(text_value, str):
+                skipped_no_text += 1
+                if skipped_no_text <= 3:  # Only print first 3 errors
+                    logging.warning(f"[Skipped] text invalid: {text_value} | {ccid}")
                 continue
+                
             pt_files = sorted(case_to_pt.get(ccid, []))
             if not pt_files:
+                skipped_no_pt += 1
                 continue
             for pt_file in pt_files:
                 pt_name = os.path.basename(pt_file)[:-3]
                 if pt_name not in target_cases:
+                    skipped_not_in_target += 1
                     continue
                 if ccid in LUSC_cases:
                     label = 0
@@ -149,12 +183,16 @@ class PathSearchDataset(torch.utils.data.Dataset):
                 self.feature_pt_path.append(pt_file)
                 self.case_id.append(pt_name)
                 valid += 1
-                # leave tokenization to caller; store raw text
-                self.txts.append(text_all.iat[i, 5])
+                # Tokenize text (like PathVLM)
+                tokenized = self.tokenizer(text_value, context_length=256)
+                self.txts.append(tokenized)
                 coord_path = root / 'h5_files' / 'conch_v1_5' / f'{pt_name}.h5'
                 self.coords_h5_path.append(str(coord_path))
                 self.patch_size_lv0.append(np.int64(448))
-        print('Loaded', valid, 'valid samples')
+        
+        logging.info(f'Loaded {valid} valid samples')
+        logging.info(f'Skipped: no_text={skipped_no_text}, no_pt={skipped_no_pt}, not_in_target={skipped_not_in_target}')
+        print(f'Loaded {valid} valid samples')
 
     def _preprocess_samples(self):
         logging.info("Starting dynamic proportional sampling...")
@@ -218,12 +256,21 @@ class PathSearchDataset(torch.utils.data.Dataset):
                 n_close = max(1, int(q * 0.5))
                 n_rand = q - n_close
                 close_samples = sorted_idx[:n_close]
-                if len(sorted_idx) - n_close >= n_rand:
-                    pool = sorted_idx[n_close:]
-                    rand_samples = pool[torch.randperm(len(pool))[:n_rand]]
+                
+                # Fix: handle edge case when cluster is too small
+                if n_rand > 0:
+                    if len(sorted_idx) - n_close >= n_rand:
+                        pool = sorted_idx[n_close:]
+                        rand_samples = pool[torch.randperm(len(pool))[:n_rand]]
+                    elif len(sorted_idx) > n_close:
+                        # Sample with replacement from remaining samples
+                        rand_samples = sorted_idx[torch.randint(n_close, len(sorted_idx), (n_rand,))]
+                    else:
+                        # If cluster only has n_close samples, duplicate some
+                        rand_samples = sorted_idx[torch.randint(0, len(sorted_idx), (n_rand,))]
+                    sampled.extend(torch.cat([close_samples, rand_samples]))
                 else:
-                    rand_samples = sorted_idx[torch.randint(n_close, len(sorted_idx), (n_rand,))]
-                sampled.extend(torch.cat([close_samples, rand_samples]))
+                    sampled.extend(close_samples)
             final_idx = torch.stack(sampled)[:sample_num]
             if len(final_idx) < sample_num:
                 pad = sample_num - len(final_idx)
@@ -252,6 +299,7 @@ class PathSearchDataset(torch.utils.data.Dataset):
             cache = pickle.load(f)
             self.kmeans_cache = cache['kmeans_cache']
             self.feature_pt_path = cache['feature_pt_path']
+            self.txts = cache['txts']  # Load texts from cache
             self.case_id = cache['case_id']
             self.label = cache['label']
             self.coords = cache['coords']
@@ -277,3 +325,29 @@ class PathSearchDataset(torch.utils.data.Dataset):
         except Exception as e:
             logging.warning("Error loading sample %s: %s", idx, e)
             return self.__getitem__((idx + 1) % len(self))
+
+    @staticmethod
+    def collate_fn(batch):
+        """Collate function for DataLoader.
+        
+        Args:
+            batch: List of tuples (case_id, data, text, label, coord, patch)
+        
+        Returns:
+            Tuple of batched tensors
+        """
+        case_ids, datas, texts, labels, coords, patches = zip(*batch)
+        
+        # Stack data tensors (assuming they all have the same shape after kmeans)
+        datas = torch.stack(datas, dim=0)
+        
+        # Stack tokenized texts (texts are already tensors from tokenizer)
+        texts = torch.stack(texts, dim=0)
+        
+        # Convert labels to tensor
+        if isinstance(labels[0], torch.Tensor):
+            labels = torch.stack(labels, dim=0)
+        else:
+            labels = torch.tensor(labels)
+        
+        return case_ids, datas, texts, labels, coords, patches

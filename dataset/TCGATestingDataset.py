@@ -9,7 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 from rich import print as rprint
 
-class TCGARetrievalE2EUniversalDataset(torch.utils.data.Dataset):
+class TCGARetrievalUniversalDataset(torch.utils.data.Dataset):
     """Refactored to use ./data/* layout with no hard-coded absolute paths.
 
     Expected tree under `data_root` (default ./data/TCGA):

@@ -1,4 +1,4 @@
-import torch, argparse, os, numpy as np
+import torch, argparse, os, numpy as np, sys
 from tqdm import tqdm
 from rich import print as rprint
 from collections import defaultdict
@@ -6,15 +6,18 @@ from scipy import stats
 import bitarray
 from bitarray import util as butil
 
-from PathSearch.dataset.Camelyon17Dataset import Camelyon17Dataset
-from PathSearch.model.PathSearch import PathSearch
+# Add parent directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+
+from dataset.Camelyon17Dataset import Camelyon17Dataset
+from model.PathSearch import PathSearch
 
 parser = argparse.ArgumentParser(description='CAMELYON17 Test (PathSearch + BoB)')
 parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
 parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--data_dir', type=str, default='./data')
-parser.add_argument('--model_path', type:str, default='')
-parser.add_argument('--sample_num', type:int, default=-1)
+parser.add_argument('--model_path', type=str, default='')
+parser.add_argument('--sample_num', type=int, default=-1)
 params = parser.parse_args()
 params.model_type = 'pathsearch'
 
