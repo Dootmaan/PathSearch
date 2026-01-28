@@ -34,10 +34,6 @@ The DHMC-LUAD dataset can be obtained from the Department of Pathology and Labor
 
 You may continuously add different types of samples to your search archive, building your own diagnostic library.
 
-#### 2.1 The Demo
-
-We have provided several demo slides for retrieval testing. You can use TCGA-A8-A08L as the query, and PathSearch will return related cases, namely A8-A07C, A8-A079, A8-A0A9, A8-A08P, A8-A09Z.
-
 ### 3. Clone the code 
 
 Clone the repository by running:
@@ -52,7 +48,20 @@ Then navigate into the project directory:
 cd PathSearch
 ```
 
-### 4. Training
+### 4. Demo
+
+We provide a demo dataset containing 30 TCGA slides for quick testing and verification. The demo dataset is located in `demo_dataset/` and includes pre-extracted CONCH v1.5 features in `.pt` format. The demo right now outputs the index of candidate WSIs and does not include the thumbnail visualization of the retrieved samples.
+
+**Run the demo retrieval:**
+
+```bash
+# Run on CPU (default)
+bash shells/test_demo.sh
+```
+
+This will output retrieval results to `demo_retrieval_results.csv`. The demo has been verified and the `demo_retrieval_results.csv` has already been generated in the directory, which can be used for reproducibility verification.
+
+### 5. Training
 
 Generally speaking, you can directly use the released weights for the attentive mosaic generator and the report encoder in the PathSearch framework.  
 These weights can be found [on Zenodo](https://zenodo.org/records/17431804).
@@ -65,7 +74,7 @@ bash shell/train_pathsearch.sh
 
 to train the model from scratch with the default hyperparameters.
 
-### 5. Testing
+### 6. Testing
 
 This repository provides four ready-to-run scripts for the four public datasets used in the study, three of which are external. Simply run:
 

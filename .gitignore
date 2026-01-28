@@ -1,5 +1,4 @@
 *.bak
-*.pt
 __pycache__
 *.pyce
 .vscode
