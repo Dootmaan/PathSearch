@@ -4,3 +4,4 @@ __pycache__
 *.pyce
 .vscode
 .DS_Store
+.log
