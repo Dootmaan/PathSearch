@@ -1,0 +1,6 @@
+.bak
+.pt
+__pycache__
+*.pyce
+.vscode
+.DS_Store
