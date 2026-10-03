@@ -5,10 +5,11 @@ import numpy as np
 import pandas
 import logging
 import h5py
+from typing import Optional
 from fast_pytorch_kmeans import KMeans
 
 class DHMCLUADDataset(torch.utils.data.Dataset):
-    def __init__(self, path: str = './data/DHMC_LUAD', mode: str = 'train', method: str = 'conch_v1_5', sample_num: int | None = None):
+    def __init__(self, path: str = './data/DHMC_LUAD', mode: str = 'train', method: str = 'conch_v1_5', sample_num: Optional[int] = None):
         super().__init__()
         self.mode = mode
         self.data = []

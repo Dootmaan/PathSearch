@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
@@ -7,14 +8,18 @@ from datetime import datetime
 from rich import print as rprint
 from tqdm import tqdm
 import argparse
-from PathSearch import config
 
+# Add parent directory to path to allow imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from PathSearch.model.PathSearch import PathSearch
-from PathSearch.dataset.PathSearchTrainingDataset import PathSearchDataset
+import config
+from model.PathSearch import PathSearch
+from dataset.PathSearchTrainingDataset import PathSearchDataset
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train PathSearch Model")
+    parser.add_argument('--data_root', type=str, default=None, help='Root directory for training data (default: use config.DATA_DIR or PATHSEARCH_DATA_DIR env var)')
+    parser.add_argument('--cache_dir', type=str, default=None, help='Cache directory for preprocessed data (default: use config.CACHE_DIR or PATHSEARCH_CACHE_DIR env var)')
     parser.add_argument('--batch_size', type=int, default=256, help='Batch size for training')
     parser.add_argument('--epochs', type=int, default=200, help='Number of epochs to train')
     parser.add_argument('--learning_rate', type=float, default=8e-5, help='Learning rate')
@@ -44,6 +49,10 @@ def evaluate(model, dataloader, device):
             texts = texts.squeeze(1).to(device)
 
             image_features, mosaics, text_features, logit_scale = model(image=images, text=texts)
+            
+            # Handle DataParallel case where logit_scale might have multiple values
+            if isinstance(logit_scale, torch.Tensor) and logit_scale.dim() > 0:
+                logit_scale = logit_scale.mean()
 
             logits_per_image = logit_scale * torch.matmul(image_features, text_features.T)
             logits_per_text = logit_scale * torch.matmul(text_features, image_features.T)
@@ -106,12 +115,22 @@ def main():
 
     # Build training and validation datasets
     # Use env/config driven defaults for data and cache directories so the code
-    # works across machines. Users may override with PATHSEARCH_DATA_DIR
-    default_data_path = os.environ.get('PATHSEARCH_DATA_DIR', str(config.DATA_DIR))
-    default_cache_dir = os.environ.get('PATHSEARCH_CACHE_DIR', str(config.CACHE_DIR / 'step2_new' / 'sample_num512'))
+    # works across machines. Users may override with PATHSEARCH_DATA_DIR env var or --data_root argument
+    if args.data_root is not None:
+        default_data_path = args.data_root
+    else:
+        default_data_path = os.environ.get('PATHSEARCH_DATA_DIR', str(config.DATA_DIR))
+    
+    if args.cache_dir is not None:
+        default_cache_dir = args.cache_dir
+    else:
+        default_cache_dir = os.environ.get('PATHSEARCH_CACHE_DIR', str(config.CACHE_DIR / 'step2_new' / 'sample_num512'))
+
+    rprint(f"[bold green]Data root:[/bold green] {default_data_path}")
+    rprint(f"[bold green]Cache dir:[/bold green] {default_cache_dir}")
 
     train_dataset = PathSearchDataset(
-        path=default_data_path,
+        data_root=default_data_path,
         mode='train',
         sample_num=args.sample_num,
         cache_dir=default_cache_dir,
@@ -119,7 +138,7 @@ def main():
     )
 
     val_dataset = PathSearchDataset(
-        path=default_data_path,
+        data_root=default_data_path,
         mode='test',
         sample_num=args.sample_num,
         cache_dir=default_cache_dir,

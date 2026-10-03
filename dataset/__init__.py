@@ -1,7 +1,7 @@
 """PathSearch.dataset package initializer.
 
 Expose commonly used dataset classes for convenient imports like:
-    from PathSearch.dataset import DHMCLUADDataset
+    from dataset import DHMCLUADDataset
 """
 from typing import List
 

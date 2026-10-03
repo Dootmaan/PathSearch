@@ -1,4 +1,5 @@
-import torch, argparse, os, numpy as np
+import torch, argparse, os, numpy as np, sys
+import pandas as pd
 from tqdm import tqdm
 from rich import print as rprint
 from collections import defaultdict
@@ -6,8 +7,11 @@ from scipy import stats
 from bitarray import util as butil
 import bitarray
 
-from PathSearch.dataset.AnonymousDatasetTemplate import AnonymousDataset
-from PathSearch.model.PathSearch import PathSearch
+# Add parent directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+
+from dataset.AnonymousDatasetTemplate import AnonymousDataset
+from model.PathSearch import PathSearch
 
 parser = argparse.ArgumentParser(description='Anonymous Dataset Test (PathSearch + BoB)')
 parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
@@ -151,9 +155,9 @@ def evaluate_model(testset):
                 txt_feats = img_feats
                 all_case_ids.append(case_id)
                 mosaic_cluster_npy = img_feats
-                # if os.path.exists('/jhcnas4/hongyi/wsi-report-corrected-20250105/yottixel_mosaics/'+case_id.split(r'.')[0]+'/conch_v1.5_feats.npy'):
+                # if os.path.exists('/your/path/to/yottixel_mosaics/'+case_id.split(r'.')[0]+'/conch_v1.5_feats.npy'):
                 #     # load corresponding mosaic features
-                #     mosaic_cluster_npy = np.load('/jhcnas4/hongyi/wsi-report-corrected-20250105/yottixel_mosaics/'+case_id.split(r'.')[0]+'/conch_v1.5_feats.npy')
+                #     mosaic_cluster_npy = np.load('/your/path/to/yottixel_mosaics/'+case_id.split(r'.')[0]+'/conch_v1.5_feats.npy')
                 #     mosaic_cluster_npy = torch.from_numpy(mosaic_cluster_npy)
                 mosaic = torch.cat((mosaic.cpu().squeeze(0), mosaic_cluster_npy), dim=0)
                 # mosaic = torch.cat((mosaic_cluster_npy, img_feats), dim=0)
@@ -305,10 +309,10 @@ def evaluate_model(testset):
     
     # Save results to the specified path
     if params.sample_num == -1:
-        subroot = os.path.join('/home/hongyi/Workspace-Python/PathSearch/temp_result/all', params.model_path.split('/')[-3], params.model_path.split('/')[-2])
+        subroot = os.path.join('/your/path/to/PathSearch/temp_result/all', params.model_path.split('/')[-3], params.model_path.split('/')[-2])
     # subroot = os.path.join('/home/hongyi/Workspace-Python/PathSearch/temp_result/all',params.model_path.split('/')[-2])
     else:
-        subroot = os.path.join(f'/home/hongyi/Workspace-Python/PathSearch/temp_result/kmeans{params.sample_num}', params.model_path.split('/')[-2])
+        subroot = os.path.join(f'/your/path/to/PathSearch/temp_result/kmeans{params.sample_num}', params.model_path.split('/')[-2])
     if not os.path.exists(subroot):
         os.makedirs(subroot)
     result_filename = f"TCGA_results_{params.model_type}_{params.feature_method}_{params.model_path.split('/')[-1].split('.')[0]}.xlsx"

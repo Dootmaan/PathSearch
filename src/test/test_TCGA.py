@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 from tqdm import tqdm
 import pandas as pd
@@ -11,7 +12,10 @@ import bitarray
 import numpy as np
 from bitarray import util as butil
 
-from PathSearch.dataset.PathSearchTestingDataset import TCGARetrievalE2EUniversalDataset
+# Add parent directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+
+from dataset.TCGATestingDataset import TCGARetrievalUniversalDataset
 
 # --- Args (minimal change): remove --model_type, keep others; default data_dir -> ./data/TCGA
 parser = argparse.ArgumentParser(description='Universal Model Testing for TCGA (PathSearch + BoB)')
@@ -29,7 +33,7 @@ device = torch.device(params.device)
 
 # --- Dataset (unchanged logic; paths now relative)
 if params.sample_num == 512:
-    testset = TCGARetrievalE2EUniversalDataset(
+    testset = TCGARetrievalUniversalDataset(
         data_root=params.data_dir,
         mode='test',
         sample_num=params.sample_num,
@@ -37,7 +41,7 @@ if params.sample_num == 512:
         rebuild_cache=False
     )
 elif params.sample_num == -1:
-    testset = TCGARetrievalE2EUniversalDataset(
+    testset = TCGARetrievalUniversalDataset(
         data_root=params.data_dir,
         mode='test',
         sample_num=params.sample_num,
@@ -46,7 +50,7 @@ elif params.sample_num == -1:
     )
 
 # --- PathSearch model branch only ---
-from PathSearch.model.PathSearch import PathSearch
+from model.PathSearch import PathSearch
 model = PathSearch(768).to(device)
 # optional load
 if os.path.isfile(params.model_path):

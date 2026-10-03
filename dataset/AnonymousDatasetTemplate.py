@@ -5,6 +5,7 @@ import numpy as np
 import pandas
 import h5py
 import logging
+from typing import Optional
 from fast_pytorch_kmeans import KMeans
 
 class AnonymousDataset(torch.utils.data.Dataset):
@@ -15,7 +16,7 @@ class AnonymousDataset(torch.utils.data.Dataset):
       ./pt_files/conch_v1_5/<CASE>.pt
       ./h5_files/conch_v1_5/<CASE>.h5 (coords)
     """
-    def __init__(self, path: str = './data/Anonymous', mode: str = 'train', method: str = 'conch_v1_5', sample_num: int | None = None):
+    def __init__(self, path: str = './data/Anonymous', mode: str = 'train', method: str = 'conch_v1_5', sample_num: Optional[int] = None):
         super().__init__()
         self.mode = mode
         self.data = []
