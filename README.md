@@ -7,7 +7,7 @@ PathSearch is an accurate and scalable system for multimodal pathology retrieval
 
 ---
 
-> ⚠️ **Note:** Some files may be missing temporarily and will be added or updated shortly. We will continue to ensure that the code behaves the same as in our experiments.
+> ⚠️ **Note:** The code has been verified for training and inference. If you still find certain files missing, please raise an issue for it. We will continue to ensure that the code behaves the same as in our experiments.
 
 ### 1. Prerequisites
 
@@ -28,7 +28,7 @@ The complete experimental environment will be included in the `requirements.txt`
 
 ### 2. Prepare the data / archive
 
-You can download the TCGA data and corresponding labels from the [NIH Genomic Data Commons](https://portal.gdc.cancer.gov).  
+You can download the TCGA data and corresponding labels from the [NIH Genomic Data Commons](https://portal.gdc.cancer.gov), of which the detailed list is provided in `PathSearch/dataset/TCGA_file_list.txt.`
 The Camelyon16 and Camelyon17 datasets are available on the [Grand Challenge](https://camelyon16.grand-challenge.org/) and [Camelyon17](https://camelyon17.grand-challenge.org/) platforms.  
 The DHMC-LUAD dataset can be obtained from the Department of Pathology and Laboratory Medicine at Dartmouth–Hitchcock Medical Center via registration and request ([link](https://bmirds.github.io/LungCancer/)). You can also prepare your own datasets as long as you have the whole slide images available.
 
