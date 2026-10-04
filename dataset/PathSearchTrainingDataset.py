@@ -56,9 +56,9 @@ class PathSearchDataset(torch.utils.data.Dataset):
         
         # Define split files - use fixed paths like PathVLM
         split_files = [
-            '/your/path/to/EasyMIL/splits712/LUAD_LUSC_100/splits_0.csv',
-            '/your/path/to/EasyMIL/splits712/RCC_100/splits_0.csv',
-            '/your/path/to/EasyMIL/splits712/TCGA_BRCA_subtyping_100/splits_0.csv'
+            '/home/hongyi/Workspace-Python/EasyMIL/splits712/LUAD_LUSC_100/splits_0.csv',
+            '/home/hongyi/Workspace-Python/EasyMIL/splits712/RCC_100/splits_0.csv',
+            '/home/hongyi/Workspace-Python/EasyMIL/splits712/TCGA_BRCA_subtyping_100/splits_0.csv'
         ]
         
         train_cases, val_cases, test_cases = set(), set(), set()
@@ -88,12 +88,12 @@ class PathSearchDataset(torch.utils.data.Dataset):
             exclude_cases = train_cases | val_cases
 
         # Load cancer-specific cases from fixed paths (like PathVLM)
-        LUAD_path = '/your/path/to/Pathology/Patches/TCGA__LUAD/pt_files/conch/'
-        LUSC_path = '/your/path/to/Pathology/Patches/TCGA__LUSC/pt_files/conch/'
-        KIRP_path = '/your/path/to/Pathology/Patches/TCGA__KIRP/pt_files/conch/'
-        KIRC_path = '/your/path/to/Pathology/Patches/TCGA__KIRC/pt_files/conch/'
-        KICH_path = '/your/path/to/Pathology/Patches/TCGA__KICH/pt_files/conch/'
-
+        LUAD_path = '/jhcnas3/Pathology/Patches/TCGA__LUAD/pt_files/conch/'
+        LUSC_path = '/jhcnas3/Pathology/Patches/TCGA__LUSC/pt_files/conch/'
+        KIRP_path = '/jhcnas3/Pathology/Patches/TCGA__KIRP/pt_files/conch/'
+        KIRC_path = '/jhcnas3/Pathology/Patches/TCGA__KIRC/pt_files/conch/'
+        KICH_path = '/jhcnas3/Pathology/Patches/TCGA__KICH/pt_files/conch/'
+        
         LUAD_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{LUAD_path}/*.pt")] if os.path.exists(LUAD_path) else []
         LUSC_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{LUSC_path}/*.pt")] if os.path.exists(LUSC_path) else []
         KICH_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{KICH_path}/*.pt")] if os.path.exists(KICH_path) else []
@@ -101,7 +101,7 @@ class PathSearchDataset(torch.utils.data.Dataset):
         KIRP_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{KIRP_path}/*.pt")] if os.path.exists(KIRP_path) else []
 
         # BRCA subtyping - use fixed path
-        brca_csv = '/your/path/to/EasyMIL/dataset_csv/BRCA_subtyping.csv'
+        brca_csv = '/home/hongyi/Workspace-Python/EasyMIL/dataset_csv/BRCA_subtyping.csv'
         ILC_cases, IDC_cases = [], []
         if os.path.exists(brca_csv):
             brca = pd.read_csv(brca_csv, index_col=2)
@@ -113,7 +113,7 @@ class PathSearchDataset(torch.utils.data.Dataset):
                     ILC_cases.append(case_name[:12])
 
         # Load text data - use fixed path like PathVLM
-        txt_path = '/your/path/to/wsi4report/TCGA_all_clean_qianwen2.csv'
+        txt_path = '/jhcnas3/wanghongyi/wsi4report/TCGA_all_clean_qianwen2.csv'
         if not os.path.exists(txt_path):
             raise FileNotFoundError(f"Text CSV not found: {txt_path}")
         text_all = pd.read_csv(txt_path)

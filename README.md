@@ -76,8 +76,10 @@ to test the model on these datasets. Be sure to specify the path to your archive
 #### Acknowledgment
 
 We used [CONCH](https://github.com/mahmoodlab/CONCH) for generating patch-level embeddings via EasyMIL.
-We have partially borrowed code from CLIP and TransMIL to construct PathSearch; therefore, PathSearch will also follow the GPL v3 LICENSE upon publication.
-We sincerely thank these teams for their dedicated efforts in advancing this field.
+We have partially borrowed code from [CLIP](https://github.com/openai/CLIP) and [TransMIL](https://github.com/szc19990412/TransMIL) to construct PathSearch; therefore, PathSearch will also follow the GPL v3 LICENSE upon publication.
+
+We sincerely thank these teams for their dedicated efforts in advancing this field. We also would like to thank the authors from the [PathologySearchComparison project](https://github.com/jacobluber/PathologySearchComparison) for the PyTorch reproduction of existing methods.
+
 
 #### Citation
 
