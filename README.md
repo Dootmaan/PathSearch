@@ -24,7 +24,7 @@ You will need the following libraries to reproduce or deploy PathSearch (tested 
 - **scikit-learn** 1.6.1  
 - **pandas**
 
-The complete experimental environment will be included in the `requirements.txt` file. However, not all libraries listed there are required by PathSearch.
+The complete experimental environment will be included in the `requirements.txt` file. However, not all libraries listed there are required by PathSearch. The installation time varies between different devices but normally would not takes more than 15 minutes.
 
 ### 2. Prepare the data / archive
 
@@ -33,6 +33,10 @@ The Camelyon16 and Camelyon17 datasets are available on the [Grand Challenge](ht
 The DHMC-LUAD dataset can be obtained from the Department of Pathology and Laboratory Medicine at Dartmouth–Hitchcock Medical Center via registration and request ([link](https://bmirds.github.io/LungCancer/)). You can also prepare your own datasets as long as you have the whole slide images available.
 
 You may continuously add different types of samples to your search archive, building your own diagnostic library.
+
+#### 2.1 The Demo
+
+We have provided several demo slides for retrieval testing. You can use TCGA-A8-A08L as the query, and PathSearch will return related cases, namely A8-A07C, A8-A079, A8-A0A9, A8-A08P, A8-A09Z.
 
 ### 3. Clone the code 
 
