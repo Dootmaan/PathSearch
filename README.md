@@ -34,6 +34,10 @@ The DHMC-LUAD dataset can be obtained from the Department of Pathology and Labor
 
 You may continuously add different types of samples to your search archive, building your own diagnostic library.
 
+---
+
+> ⚠️ **Note:** You will need to use EasyMIL for tiling and feature extraction of these slides. Please visit [EasyMIL's official page](https://github.com/birkhoffkiki/EasyMIL) for more information about its usage. Kindly note that there is already a demo dataset provided in this repo for some quick tests. 
+
 ### 3. Clone the code 
 
 Clone the repository by running:
