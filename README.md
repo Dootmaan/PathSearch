@@ -1,3 +1,5 @@
+### This version is the original code before agent reviewing
+
 # PathSearch
 Official Repository for *Accurate and Scalable Multimodal Pathology Retrieval via Attentive Vision-Language Alignment*
 
