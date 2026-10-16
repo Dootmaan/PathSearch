@@ -14,13 +14,31 @@ class PathSearchDataset(torch.utils.data.Dataset):
     """PathSearch/CONCH-style dataset using ./data root and local splits/labels/texts.
 
     Root (default ./data/TCGA):
-      ./splits/<...>/splits_0.csv
-      ./labels/BRCA_subtyping.csv
-      ./texts/TCGA_all_clean_qianwen2.csv
+      ./splits/<...>/splits_0.csv         (auto-discovered, or pass split_files=)
+      ./labels/BRCA_subtyping.csv         (or pass brca_csv=)
+      ./texts/TCGA_all_clean_qianwen2.csv (or pass text_csv=)
       ./pt_files/conch_v1_5/*.pt
       ./h5_files/conch_v1_5/*.h5
+      ./pt_files/<CANCER>/conch/*.pt      (for label discovery, or pass cancer_pt_dirs=)
+
+    All path arguments that remain ``None`` fall back to ``data_root``-relative
+    defaults, so the dataset works out-of-the-box when data is arranged as
+    documented above without requiring the user to edit any source file.
     """
-    def __init__(self, data_root: str = './data/TCGA', mode: str = 'test', sample_num: int = 512, cache_dir: Optional[str] = './kmeans_cache', rebuild_cache: bool = False):
+    def __init__(
+        self,
+        data_root: str = './data/TCGA',
+        mode: str = 'test',
+        sample_num: int = 512,
+        cache_dir: Optional[str] = './kmeans_cache',
+        rebuild_cache: bool = False,
+        # Configurable path overrides — all default to data_root-relative locations.
+        split_files: Optional[list] = None,
+        cancer_pt_dirs: Optional[dict] = None,
+        brca_csv: Optional[str] = None,
+        text_csv: Optional[str] = None,
+        text_col: int = 5,
+    ):
         if cache_dir is None:
             cache_dir = './kmeans_cache'
         self.label, self.coords, self.patch_size_lv0 = [], [], []
@@ -30,14 +48,21 @@ class PathSearchDataset(torch.utils.data.Dataset):
         self.sample_num = int(sample_num)
         self.cache_dir = Path(cache_dir)
         self.kmeans_cache = {}
-        
+
         # Initialize tokenizer (like PathVLM)
         from open_clip import get_tokenizer
         self.tokenizer = get_tokenizer('hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224')
-        
+
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        self._load_data_paths(data_root)
+        self._load_data_paths(
+            data_root,
+            split_files=split_files,
+            cancer_pt_dirs=cancer_pt_dirs,
+            brca_csv=brca_csv,
+            text_csv=text_csv,
+            text_col=text_col,
+        )
 
         cache_file = self.cache_dir / f"{mode}_cache.pkl"
         if not rebuild_cache and cache_file.exists():
@@ -51,57 +76,73 @@ class PathSearchDataset(torch.utils.data.Dataset):
             self._preprocess_samples()
             self._save_cache(cache_file)
 
-    def _load_data_paths(self, data_root: str):
+    def _load_data_paths(
+        self,
+        data_root: str,
+        split_files: Optional[list] = None,
+        cancer_pt_dirs: Optional[dict] = None,
+        brca_csv: Optional[str] = None,
+        text_csv: Optional[str] = None,
+        text_col: int = 5,
+    ):
         root = Path(data_root)
-        
-        # Define split files - use fixed paths like PathVLM
-        split_files = [
-            '/home/hongyi/Workspace-Python/EasyMIL/splits712/LUAD_LUSC_100/splits_0.csv',
-            '/home/hongyi/Workspace-Python/EasyMIL/splits712/RCC_100/splits_0.csv',
-            '/home/hongyi/Workspace-Python/EasyMIL/splits712/TCGA_BRCA_subtyping_100/splits_0.csv'
-        ]
-        
+
+        # ---- Split files -------------------------------------------------------
+        # If not provided, auto-discover under data_root/splits/*/splits_0.csv.
+        if split_files is None:
+            split_files = sorted(glob.glob(str(root / 'splits' / '*' / 'splits_0.csv')))
+            if not split_files:
+                logging.warning(
+                    "No split files found under %s/splits/. All .pt files will be "
+                    "treated as training data.", data_root
+                )
+
         train_cases, val_cases, test_cases = set(), set(), set()
-        
-        # Collect cases from all split files
         for split_file in split_files:
             if os.path.exists(split_file):
                 df = pd.read_csv(split_file, index_col=0, header=0)
-                # Column 1 = train, Column 2 = val, Column 3 = test
+                # Column 0 = train, Column 1 = val, Column 2 = test
                 train_cases.update(df.iloc[:, 0].dropna().tolist())
                 val_cases.update(df.iloc[:, 1].dropna().tolist())
                 test_cases.update(df.iloc[:, 2].dropna().tolist())
             else:
-                logging.warning(f"Split file not found: {split_file}")
-        
+                logging.warning("Split file not found: %s", split_file)
+
         # Select target cases based on mode
         if self.mode == 'train':
             pt_root = root / 'pt_files' / 'conch_v1_5'
             all_pts = glob.glob(str(pt_root / '*.pt'))
             target_cases = set(os.path.basename(x)[:-3] for x in all_pts) - (val_cases | test_cases)
-            exclude_cases = val_cases | test_cases
         elif self.mode == 'val':
             target_cases = val_cases
-            exclude_cases = train_cases | test_cases
         else:
             target_cases = test_cases
-            exclude_cases = train_cases | val_cases
 
-        # Load cancer-specific cases from fixed paths (like PathVLM)
-        LUAD_path = '/jhcnas3/Pathology/Patches/TCGA__LUAD/pt_files/conch/'
-        LUSC_path = '/jhcnas3/Pathology/Patches/TCGA__LUSC/pt_files/conch/'
-        KIRP_path = '/jhcnas3/Pathology/Patches/TCGA__KIRP/pt_files/conch/'
-        KIRC_path = '/jhcnas3/Pathology/Patches/TCGA__KIRC/pt_files/conch/'
-        KICH_path = '/jhcnas3/Pathology/Patches/TCGA__KICH/pt_files/conch/'
-        
-        LUAD_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{LUAD_path}/*.pt")] if os.path.exists(LUAD_path) else []
-        LUSC_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{LUSC_path}/*.pt")] if os.path.exists(LUSC_path) else []
-        KICH_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{KICH_path}/*.pt")] if os.path.exists(KICH_path) else []
-        KIRC_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{KIRC_path}/*.pt")] if os.path.exists(KIRC_path) else []
-        KIRP_cases = [os.path.basename(x).split('.pt')[0][:12] for x in glob.glob(f"{KIRP_path}/*.pt")] if os.path.exists(KIRP_path) else []
+        # ---- Cancer-specific pt directories for label discovery ----------------
+        # Default: data_root/pt_files/<CANCER>/conch/*.pt
+        _default_cancer_types = ['LUAD', 'LUSC', 'KIRP', 'KIRC', 'KICH']
+        if cancer_pt_dirs is None:
+            cancer_pt_dirs = {
+                c: str(root / 'pt_files' / c / 'conch') for c in _default_cancer_types
+            }
 
-        # BRCA subtyping - use fixed path
-        brca_csv = '/home/hongyi/Workspace-Python/EasyMIL/dataset_csv/BRCA_subtyping.csv'
+        def _collect_cases(path: str) -> list:
+            if os.path.exists(path):
+                return [
+                    os.path.basename(x).split('.pt')[0][:12]
+                    for x in glob.glob(os.path.join(path, '*.pt'))
+                ]
+            return []
+
+        LUAD_cases = _collect_cases(cancer_pt_dirs.get('LUAD', ''))
+        LUSC_cases = _collect_cases(cancer_pt_dirs.get('LUSC', ''))
+        KICH_cases = _collect_cases(cancer_pt_dirs.get('KICH', ''))
+        KIRC_cases = _collect_cases(cancer_pt_dirs.get('KIRC', ''))
+        KIRP_cases = _collect_cases(cancer_pt_dirs.get('KIRP', ''))
+
+        # ---- BRCA subtyping CSV ------------------------------------------------
+        if brca_csv is None:
+            brca_csv = str(root / 'labels' / 'BRCA_subtyping.csv')
         ILC_cases, IDC_cases = [], []
         if os.path.exists(brca_csv):
             brca = pd.read_csv(brca_csv, index_col=2)
@@ -111,20 +152,23 @@ class PathSearchDataset(torch.utils.data.Dataset):
                     IDC_cases.append(case_name[:12])
                 elif lv == 'ILC':
                     ILC_cases.append(case_name[:12])
+        else:
+            logging.warning("BRCA subtyping CSV not found at %s; IDC/ILC labels will be empty.", brca_csv)
 
-        # Load text data - use fixed path like PathVLM
-        txt_path = '/jhcnas3/wanghongyi/wsi4report/TCGA_all_clean_qianwen2.csv'
-        if not os.path.exists(txt_path):
-            raise FileNotFoundError(f"Text CSV not found: {txt_path}")
-        text_all = pd.read_csv(txt_path)
+        # ---- Text (pathology report) CSV ---------------------------------------
+        if text_csv is None:
+            text_csv = str(root / 'texts' / 'TCGA_all_clean_qianwen2.csv')
+        if not os.path.exists(text_csv):
+            raise FileNotFoundError(
+                f"Text CSV not found: {text_csv}\n"
+                "Place the report CSV at data_root/texts/TCGA_all_clean_qianwen2.csv "
+                "or pass text_csv= explicitly."
+            )
+        text_all = pd.read_csv(text_csv)
         all_case_ids = text_all.iloc[:, 0]
-        
-        # Debug: print CSV structure
-        logging.info(f"Text CSV columns: {list(text_all.columns)}")
-        logging.info(f"Text CSV shape: {text_all.shape}")
-        
-        # Text is in column 5 (text_by_wanghongyi_qianwen_deep_filter)
-        text_col_idx = 5
+        logging.info("Text CSV columns: %s", list(text_all.columns))
+        logging.info("Text CSV shape: %s", text_all.shape)
+        text_col_idx = text_col
 
         # pt mapping
         pt_root = root / 'pt_files' / 'conch_v1_5'
@@ -147,8 +191,8 @@ class PathSearchDataset(torch.utils.data.Dataset):
             # Check if text is valid (not nan and is string)
             if pd.isna(text_value) or not isinstance(text_value, str):
                 skipped_no_text += 1
-                if skipped_no_text <= 3:  # Only print first 3 errors
-                    logging.warning(f"[Skipped] text invalid: {text_value} | {ccid}")
+                if skipped_no_text <= 3:
+                    logging.warning("[Skipped] text invalid: %s | %s", text_value, ccid)
                 continue
                 
             pt_files = sorted(case_to_pt.get(ccid, []))
@@ -190,8 +234,8 @@ class PathSearchDataset(torch.utils.data.Dataset):
                 self.coords_h5_path.append(str(coord_path))
                 self.patch_size_lv0.append(np.int64(448))
         
-        logging.info(f'Loaded {valid} valid samples')
-        logging.info(f'Skipped: no_text={skipped_no_text}, no_pt={skipped_no_pt}, not_in_target={skipped_not_in_target}')
+        logging.info('Loaded %d valid samples', valid)
+        logging.info('Skipped: no_text=%d, no_pt=%d, not_in_target=%d', skipped_no_text, skipped_no_pt, skipped_not_in_target)
         print(f'Loaded {valid} valid samples')
 
     def _preprocess_samples(self):

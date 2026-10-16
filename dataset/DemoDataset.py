@@ -35,16 +35,11 @@ def load_tcga_labels() -> Dict[str, str]:
     """
     labels = {}
     
-    # Label CSV files (try multiple possible locations)
+    # Label CSV files — look relative to data_root first, then project root.
     label_files = [
-        # Relative to project root
         './data/TCGA/labels/BRCA_subtyping.csv',
         './data/TCGA/labels/LUAD_LUSC.csv',
         './data/TCGA/labels/RCC.csv',
-        # Absolute paths (fallback)
-        '/home/hongyi/Workspace-Python/EasyMIL/dataset_csv/BRCA_subtyping.csv',
-        '/home/hongyi/Workspace-Python/EasyMIL/dataset_csv/LUAD_LUSC.csv',
-        '/home/hongyi/Workspace-Python/EasyMIL/dataset_csv/RCC.csv',
     ]
     
     for csv_path in label_files:

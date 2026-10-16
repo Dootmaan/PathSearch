@@ -3,14 +3,13 @@ from tqdm import tqdm
 from rich import print as rprint
 from collections import defaultdict
 from scipy import stats
-import bitarray
-from bitarray import util as butil
 
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from dataset.Camelyon16Dataset import Camelyon16Dataset
 from model.PathSearch import PathSearch
+from src.retrieval_backend import build_bobs, compute_all_distances_batched
 
 parser = argparse.ArgumentParser(description='CAMELYON16 Test (PathSearch + BoB)')
 parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
@@ -18,8 +17,9 @@ parser.add_argument('--batch_size', type=int, default=1)
 parser.add_argument('--data_dir', type=str, default='./data/CAMELYON16')
 parser.add_argument('--model_path', type=str, default='')
 parser.add_argument('--sample_num', type=int, default=-1)
+parser.add_argument('--semantic_weight', type=float, default=200.0,
+                    help='Weight for the L2 semantic term in BoB distance')
 params = parser.parse_args()
-params.model_type = 'pathsearch'
 
 device = torch.device(params.device)
 
@@ -58,34 +58,9 @@ with torch.no_grad():
         all_mosaics.append(mosaic)
 
 # --- BoB retrieval (enabled) ---
-class BoB:
-    def __init__(self, barcodes, semantic_embedding, name, site):
-        import bitarray
-        self.barcodes = [bitarray.bitarray(b.tolist()) for b in barcodes]
-        self.name = name
-        self.site = site
-        self.semantic_embedding = semantic_embedding
-    def distance(self, bob):
-        total_dist = []
-        for feat in self.barcodes:
-            distances = [butil.count_xor(feat, b) for b in bob.barcodes]
-            total_dist.append(np.min(distances))
-        retval = np.median(total_dist)
-        semantic_dist = torch.norm(self.semantic_embedding-bob.semantic_embedding, p=2, dim=1)
-        return retval + 200*semantic_dist.item()
-
-BoBs = {}
-for i in range(len(all_mosaics)):
-    mosaic_feat = all_mosaics[i]
-    barcodes = (np.diff(np.array(mosaic_feat), n=1, axis=1) < 0) * 1
-    BoBs[all_case_ids[i]] = BoB(barcodes, all_img_feats[i], all_case_ids[i], all_labels[i])
-
-distances = defaultdict(list)
-for a in BoBs:
-    for b in BoBs:
-        if a == b: continue
-        dist = BoBs[a].distance(BoBs[b])
-        distances[a].append((dist, b))
+BoBs = build_bobs(all_case_ids, all_mosaics, all_img_feats, all_labels,
+                  semantic_weight=params.semantic_weight)
+distances = compute_all_distances_batched(BoBs)
 
 rprint("\n=== Img2Img Top-k Results ===")
 for k in [1,3,5]:
@@ -94,8 +69,8 @@ for k in [1,3,5]:
     for query in distances:
         distances[query].sort(key=lambda x: x[0])
         top_k = distances[query][:k]
-        top_k_labels = [BoBs[n].site.item() for _, n in top_k]
-        query_label = BoBs[query].site.item()
+        top_k_labels = [int(BoBs[n].site) for _, n in top_k]
+        query_label = int(BoBs[query].site)
         if top_k_labels[0] == query_label:
             correct += 1
         if k>1 and stats.mode(top_k_labels, keepdims=False)[0] == query_label:

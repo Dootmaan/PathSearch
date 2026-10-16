@@ -1,5 +1,3 @@
-### This version is the original code before agent reviewing
-
 # PathSearch
 Official Repository for *Accurate and Scalable Multimodal Pathology Retrieval via Attentive Vision-Language Alignment*
 
@@ -75,7 +73,7 @@ These weights can be found [on Zenodo](https://zenodo.org/records/17431804).
 To train PathSearch with the TCGA data pairs, simply run:
 
 ```bash
-bash shell/train_pathsearch.sh
+bash shells/train_pathsearch.sh
 ```
 
 to train the model from scratch with the default hyperparameters.
@@ -84,8 +82,8 @@ to train the model from scratch with the default hyperparameters.
 
 This repository provides four ready-to-run scripts for the four public datasets used in the study, three of which are external. Simply run:
 
-```
-bash shell/test.sh
+```bash
+bash shells/test.sh
 ```
 
 to test the model on these datasets. Be sure to specify the path to your archive.

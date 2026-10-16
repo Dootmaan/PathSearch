@@ -35,13 +35,17 @@ class PathSearch(nn.Module):
         embed_dim: int,
         init_logit_scale: float = float(np.log(1 / 0.07)),
         mosaic_num: int = 16,
+        require_text_encoder: bool = False,
     ) -> None:
         super().__init__()
 
         # Visual backbone (MIL + transformer refinement)
         self.visual = TransMILABMIL(in_dim=embed_dim, out_dim=embed_dim, mosaic_num=mosaic_num)
 
-        # Text backbone (BiomedCLIP); fall back to a simple zero encoder if unavailable
+        # Text backbone (BiomedCLIP); fall back to a sentinel encoder if unavailable.
+        # The sentinel raises a clear RuntimeError on first use so that failures
+        # during training or retrieval are immediately visible (not silently ignored).
+        self._text_encoder_available: bool = True
         self.text_model = None
         self.preprocess = None
         try:
@@ -51,19 +55,27 @@ class PathSearch(nn.Module):
                 "hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224"
             )
         except Exception as e:  # pragma: no cover — optional dependency
-            logging.warning("open_clip unavailable (%s); using a dummy text encoder.", e)
+            self._text_encoder_available = False
+            _msg = (
+                f"open_clip is unavailable ({e}). Text encoding will raise a "
+                "RuntimeError until open_clip is installed "
+                "(`pip install open-clip-torch`)."
+            )
+            if require_text_encoder:
+                raise RuntimeError(_msg) from e
+            logging.warning(_msg)
 
-            class _DummyTextModel:
-                def encode_text(self, text: torch.Tensor, normalize: bool = True) -> torch.Tensor:
-                    # Infer batch from first dim when possible
-                    try:
-                        b = int(getattr(text, "shape", [1])[0])
-                    except Exception:
-                        b = 1
-                    out = torch.zeros((b, 512), dtype=torch.float32, device=text.device if torch.is_tensor(text) else "cpu")
-                    return F.normalize(out, dim=-1) if normalize else out
+            class _SentinelTextModel:
+                """Placeholder that fails loudly instead of silently returning zeros."""
 
-            self.text_model = _DummyTextModel()
+                def encode_text(self, text, normalize: bool = True):
+                    raise RuntimeError(
+                        "Text encoder is not available because open_clip could not be "
+                        "imported at model initialisation. Install open_clip_torch and "
+                        "re-initialise the model before calling encode_text()."
+                    )
+
+            self.text_model = _SentinelTextModel()
             self.preprocess = lambda x: x
 
         # Project text features to `embed_dim` (BiomedCLIP text dim is 512)

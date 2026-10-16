@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-全面测试demo样本的检索性能，使用BoB技术
-"""
+"""Demo retrieval evaluation using the BoB technique."""
 import torch
 import os
 import sys
@@ -10,33 +8,13 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from collections import defaultdict, Counter
-from bitarray import util as butil
-import bitarray
 
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from dataset.DemoDataset import DemoDataset, LABEL_NAMES
 from model.PathSearch import PathSearch
-
-
-class BoB:
-    """Bag-of-Barcodes representation for pathology images"""
-    def __init__(self, barcodes, semantic_embedding, name, site):
-        self.barcodes = [bitarray.bitarray(b.tolist()) for b in barcodes]
-        self.name = name
-        self.site = site
-        self.semantic_embedding = semantic_embedding
-
-    def distance(self, bob):
-        """Compute distance between two BoB representations"""
-        total_dist = []
-        for feat in self.barcodes:
-            distances = [butil.count_xor(feat, b) for b in bob.barcodes]
-            total_dist.append(np.min(distances))
-        retval = np.median(total_dist)
-        semantic_dist = torch.norm(self.semantic_embedding - bob.semantic_embedding, p=2, dim=1)
-        return retval + 200 * semantic_dist.item()
+from src.retrieval_backend import BoB, build_bobs, compute_all_distances_batched
 
 def test_retrieval(model, dataset, device, top_k=5):
     """测试检索性能，使用BoB技术"""
@@ -65,30 +43,19 @@ def test_retrieval(model, dataset, device, top_k=5):
             mosaic_combined = torch.cat((mosaic.cpu().squeeze(0), img_feat.cpu()), dim=0)
             all_mosaics.append(mosaic_combined)
     
-    # 构建BoB表示
+    # Build BoB representations and compute pairwise distances
     print("\nBuilding BoB representations...")
-    BoBs = {}
-    for i in range(len(all_mosaics)):
-        mosaic_feat = all_mosaics[i]
-        # Convert to barcodes using derivative
-        barcodes = (np.diff(np.array(mosaic_feat), n=1, axis=1) < 0) * 1
-        BoBs[all_case_ids[i]] = BoB(barcodes, all_img_feats[i], all_case_ids[i], all_labels[i])
-    
-    # 计算距离
+    BoBs = build_bobs(all_case_ids, all_mosaics, all_img_feats, all_labels)
+
+    # Compute distances
     print("\nComputing distances...")
-    distances = defaultdict(list)
-    for a in tqdm(BoBs, desc="Computing distances"):
-        for b in BoBs:
-            if a == b:
-                continue
-            dist = BoBs[a].distance(BoBs[b])
-            distances[a].append((dist, b))
+    distances = compute_all_distances_batched(BoBs)
     
-    # 排序
+    # Sort distances for each query
     for query in distances:
         distances[query].sort(key=lambda x: x[0])
-    
-    # 对每个样本进行检索评估
+
+    # Evaluate retrieval results
     print("\nEvaluating retrieval results...")
     results = []
     correct_top1 = 0
