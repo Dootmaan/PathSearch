@@ -9,6 +9,8 @@ PathSearch is an accurate and scalable system for multimodal pathology retrieval
 
 > ⚠️ **Note:** The code has been verified for training and inference. If you still find certain files missing, please raise an issue for it. We will continue to ensure that the code behaves the same as in our experiments.
 
+> 💻 Code of the self-host GUI for PathSearch can also be provided upon request, and will also be push to this repository soon.
+
 ### 1. Prerequisites
 
 To preprocess WSIs in a unified style, [EasyMIL Toolbox](https://github.com/birkhoffkiki/EasyMIL) is highly recommended.  
